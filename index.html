@@ -1,0 +1,77 @@
+<!DOCTYPE html> 
+<html lang="cs">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>TRACK ME</title>
+  <link rel="stylesheet" href="styles.css" />
+  <link rel="icon" href="https://icons.iconarchive.com/icons/elegantthemes/beautiful-flat/256/Bar-Chart-icon.png" type="image/png">
+</head>
+<body>
+
+<header>
+  <div id="user-info" style="display: inline-flex; align-items: center; position: absolute; left: 1rem; top: 50%; transform: translateY(-50%); cursor:pointer;"></div>
+  <h1>TRACK ME</h1>
+  <button id="login-btn" class="btn" style="position: absolute; right: 1rem; top: 50%; transform: translateY(-50%); display: none;">
+    
+  </button>
+  <button id="logout-btn" class="btn">
+    Logout
+</button>
+</header>
+
+<main>
+<div id="login-prompt">
+  <h2 style="font-size: 2rem; margin-bottom: 1rem;">
+    Please log in to view your personalized Spotify statistics!
+  </h2>
+  <button id="login-btn-prompt" class="btn" style="padding: 0.6rem 1.2rem; font-size: 1rem;">
+    Login to Spotify
+  </button>
+</div>
+  <section id="user-section" hidden>
+    <!-- Výběr časového období -->
+    <div style="text-align:center; margin-bottom:1rem;">
+      <label for="time-range-select" style="color:#1db954; font-weight:700; margin-right:0.5rem;">Select a time period:</label>
+      <select id="time-range-select" title="Select a time period" style="padding:0.3rem 0.5rem; border-radius:0.3rem; border:1px solid #1db954; background:#121212; color:#eee;">
+        <option value="short_term">Last 4 weeks</option>
+        <option value="medium_term" selected>Last 6 months</option>
+        <option value="long_term">All the time</option>
+      </select>
+    </div>
+
+    <nav>
+      <button class="tab active" data-target="artists-panel">Artists</button>
+      <button class="tab" data-target="albums-panel">Albums</button>
+      <button class="tab" data-target="tracks-panel">Tracks</button>
+      <button class="tab" data-target="genres-panel">Genres</button>
+      <button class="tab" data-target="recent-panel">Recently Played</button>
+    </nav>
+
+    <div id="artists-panel" class="panel active">
+      <div id="artists-list" class="list"></div>
+    </div>
+    <div id="albums-panel" class="panel">
+      <div id="albums-list" class="list"></div>
+    </div>
+    <div id="tracks-panel" class="panel">
+      <div id="tracks-list" class="list"></div>
+    </div>
+    <div id="genres-panel" class="panel">
+      <div id="genres-list" class="list genres-list"></div>
+    </div>
+    <div id="recent-panel" class="panel">
+      <div id="recent-list" class="list"></div>
+    </div>
+  </section>
+</main>
+
+<div id="toast"></div>
+
+<footer>
+    <p class="footer">Using Spotify WEB API | © 2025 vojunko</p>
+  </footer>
+
+<script src="app.js"></script>
+</body>
+</html>
