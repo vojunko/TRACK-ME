@@ -2,7 +2,7 @@
  * KONFIGURACE
  *************************************************************************/
 const CLIENT_ID = 'e4f69f9108aa4e72bc268fffab71b7fb';  // <-- Zde vlož svoje Client ID
-const REDIRECT_URI = 'http://127.0.0.1:5500/index.html'; // Tvůj redirect URI
+const REDIRECT_URI = 'https://v-track-me.vercel.app'; // Tvůj redirect URI
 const SCOPES = [
   'user-top-read',
   'user-read-recently-played',
