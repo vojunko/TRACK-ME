@@ -73,6 +73,7 @@ async function login() {
   url.searchParams.set('scope', SCOPES);
   url.searchParams.set('code_challenge_method', 'S256');
   url.searchParams.set('code_challenge', codeChallenge);
+  url.searchParams.set('show_dialog', 'true');  // ← PŘIDÁNO
 
   window.location = url.toString();
 }
