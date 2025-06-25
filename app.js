@@ -145,46 +145,34 @@ function handleRedirect() {
  * SPRÁVA TOKENU A OPRAVNĚNÍ
  *************************************************************************/
 async function checkTokenValidity() {
+  if (!accessToken) {
+    throw new Error('Token není k dispozici');
+  }
   try {
     const response = await fetch('https://api.spotify.com/v1/me', {
       headers: { 
-        'Authorization': `Bearer ${accessToken}`,
-        'Content-Type': 'application/json'
+        'Authorization': `Bearer ${accessToken}`
       }
     });
 
-    if (response.status === 401) {
-      throw new Error('Neplatný nebo expirovaný token');
+    const text = await response.text();
+
+    if (!response.ok) {
+      // Pokusíme se získat JSON z textu, pokud to jde
+      try {
+        const error = JSON.parse(text);
+        throw new Error(error.error?.message || 'Chyba autorizace');
+      } catch {
+        // Pokud není JSON, zobrazíme raw text - často HTML s chybou
+        throw new Error(`Chyba autorizace: ${text.substring(0, 100)}`);
+      }
     }
 
-    if (response.status === 403) {
-      const error = await response.json();
-      throw new Error(error.error?.message || 'Nedostatečná oprávnění');
-    }
-
-    return response.ok;
+    // Pokud OK, můžeme vrátit true
+    return true;
   } catch (error) {
     console.error('Kontrola tokenu selhala:', error);
     throw error;
-  }
-}
-
-async function verifyPermissions() {
-  try {
-    const response = await fetch('https://api.spotify.com/v1/me', {
-      headers: { 'Authorization': `Bearer ${accessToken}` }
-    });
-
-    if (response.status === 403) {
-      const error = await response.json();
-      if (error.error?.message?.includes('insufficient_scope')) {
-        return false;
-      }
-    }
-
-    return response.ok;
-  } catch {
-    return false;
   }
 }
 
@@ -405,8 +393,7 @@ async function loadUserData() {
 
     // Kontrola platnosti tokenu a oprávnění
     try {
-      const isValid = await checkTokenValidity();
-      if (!isValid) throw new Error('Neplatný přístupový token');
+      await checkTokenValidity();
       
       const hasPermissions = await verifyPermissions();
       if (!hasPermissions) throw new Error('Chybí potřebná oprávnění');
@@ -474,7 +461,13 @@ async function init() {
       await loadUserData();
     } else {
       accessToken = localStorage.getItem('access_token');
-      if (accessToken) await loadUserData();
+      if (accessToken) {
+        await loadUserData();
+      } else {
+        // Token není, ukážeme přihlašovací výzvu
+        $('#login-prompt').style.display = 'flex';
+        $('#user-section').hidden = true;
+      }
     }
   } catch (error) {
     console.error('Inicializační chyba:', error);
