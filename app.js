@@ -32,8 +32,8 @@ function toast(msg) {
 function switchPanel(id) {
   document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-  $(#${id}).classList.add('active');
-  document.querySelector(.tab[data-target="${id}"]).classList.add('active');
+  $('#' + id).classList.add('active');
+  document.querySelector(`.tab[data-target="${id}"]`).classList.add('active');
 }
 
 /*************************************************************************
@@ -54,7 +54,7 @@ async function generateCodeChallenge(codeVerifier) {
 function generateCodeVerifier() {
   const array = new Uint32Array(56 / 2);
   window.crypto.getRandomValues(array);
-  return Array.from(array, dec => ('0' + dec.toString(16)).substr(-2)).join('');
+  return Array.from(array, dec => ('0' + dec.toString(16)).slice(-2)).join('');
 }
 
 /*************************************************************************
@@ -110,7 +110,7 @@ async function getAccessToken(code) {
 
   if (!res.ok) {
     const err = await res.json();
-    throw new Error(Token request failed: ${err.error_description || err.error});
+    throw new Error(`Token request failed: ${err.error_description || err.error}`);
   }
 
   const data = await res.json();
@@ -120,7 +120,7 @@ async function getAccessToken(code) {
 function handleRedirect() {
   const params = new URLSearchParams(window.location.search);
   if (params.has('error')) {
-    toast(Chyba při přihlášení: ${params.get('error')});
+    toast(`Chyba při přihlášení: ${params.get('error')}`);
     history.replaceState(null, '', REDIRECT_URI);
     return false;
   }
@@ -137,27 +137,27 @@ function handleRedirect() {
  *************************************************************************/
 async function fetchUserProfile() {
   const res = await fetch('https://api.spotify.com/v1/me', {
-    headers: { Authorization: Bearer ${accessToken} }
+    headers: { Authorization: `Bearer ${accessToken}` }
   });
   if (!res.ok) throw new Error('Nepodařilo se načíst profil uživatele');
   return await res.json();
 }
 
 async function fetchUserTop(type, limit = 50) {
-  const url = https://api.spotify.com/v1/me/top/${type}?limit=${limit}&time_range=${timeRange};
+  const url = `https://api.spotify.com/v1/me/top/${type}?limit=${limit}&time_range=${timeRange}`;
   const res = await fetch(url, {
-    headers: { Authorization: Bearer ${accessToken} }
+    headers: { Authorization: `Bearer ${accessToken}` }
   });
-  if (!res.ok) throw new Error(Failed to load top ${type});
+  if (!res.ok) throw new Error(`Failed to load top ${type}`);
   return await res.json();
 }
 
 async function fetchRecentlyPlayed(limit = 50) {
   try {
-    const url = https://api.spotify.com/v1/me/player/recently-played?limit=${limit};
+    const url = `https://api.spotify.com/v1/me/player/recently-played?limit=${limit}`;
     const res = await fetch(url, {
       headers: { 
-        'Authorization': Bearer ${accessToken},
+        'Authorization': `Bearer ${accessToken}`,
         'Content-Type': 'application/json'
       }
     });
@@ -234,16 +234,16 @@ function renderTopArtists(artists) {
   const box = $('#artists-list');
   box.innerHTML = '';
   artists.forEach((a, i) => {
-    const url = a.external_urls.spotify || https://open.spotify.com/artist/${a.id};
+    const url = a.external_urls.spotify || `https://open.spotify.com/artist/${a.id}`;
     box.insertAdjacentHTML('beforeend',
-      <article class="card" style="cursor:pointer" onclick="window.open('${url}','_blank')">
+      `<article class="card" style="cursor:pointer" onclick="window.open('${url}','_blank')">
         <img src="${a.images[1]?.url || a.images[0]?.url || ''}" alt="Artist image">
         <div>
           <h3>${i + 1}. ${a.name}</h3>
           <p class="small">Followers: ${a.followers.total.toLocaleString()}</p>
           <p class="small">Genres: ${a.genres.join(', ')}</p>
         </div>
-      </article>);
+      </article>`);
   });
 }
 
@@ -251,16 +251,16 @@ function renderTopAlbums(albums) {
   const box = $('#albums-list');
   box.innerHTML = '';
   albums.forEach((a, i) => {
-    const url = a.external_urls.spotify || https://open.spotify.com/album/${a.id};
+    const url = a.external_urls.spotify || `https://open.spotify.com/album/${a.id}`;
     box.insertAdjacentHTML('beforeend',
-      <article class="card" style="cursor:pointer" onclick="window.open('${url}','_blank')">
+      `<article class="card" style="cursor:pointer" onclick="window.open('${url}','_blank')">
         <img src="${a.images[1]?.url || a.images[0]?.url || ''}" alt="Album image">
         <div>
           <h3>${i + 1}. ${a.name}</h3>
           <p class="small">Release date: ${a.release_date}</p>
           <p class="small">Artists: ${a.artists.map(artist => artist.name).join(', ')}</p>
         </div>
-      </article>);
+      </article>`);
   });
 }
 
@@ -268,9 +268,9 @@ function renderTopTracks(tracks) {
   const box = $('#tracks-list');
   box.innerHTML = '';
   tracks.forEach((t, i) => {
-    const url = t.external_urls.spotify || https://open.spotify.com/track/${t.id};
+    const url = t.external_urls.spotify || `https://open.spotify.com/track/${t.id}`;
     box.insertAdjacentHTML('beforeend',
-      <article class="card" style="cursor:pointer" onclick="window.open('${url}','_blank')">
+      `<article class="card" style="cursor:pointer" onclick="window.open('${url}','_blank')">
         <img src="${t.album.images[1]?.url || t.album.images[0]?.url || ''}" alt="Track image">
         <div>
           <h3>${i + 1}. ${t.name}</h3>
@@ -278,7 +278,7 @@ function renderTopTracks(tracks) {
           <p class="small">Album: ${t.album.name}</p>
           <p class="small">Duration: ${msToMinutesSeconds(t.duration_ms)}</p>
         </div>
-      </article>);
+      </article>`);
   });
 }
 
@@ -287,9 +287,9 @@ function renderRecentlyPlayed(tracks) {
   box.innerHTML = '';
   tracks.forEach((item, i) => {
     const t = item.track;
-    const url = t.external_urls.spotify || https://open.spotify.com/track/${t.id};
+    const url = t.external_urls.spotify || `https://open.spotify.com/track/${t.id}`;
     box.insertAdjacentHTML('beforeend',
-      <article class="card" style="cursor:pointer" onclick="window.open('${url}','_blank')">
+      `<article class="card" style="cursor:pointer" onclick="window.open('${url}','_blank')">
         <img src="${t.album.images[1]?.url || t.album.images[0]?.url || ''}" alt="Track image">
         <div>
           <h3>${i + 1}. ${t.name}</h3>
@@ -298,7 +298,7 @@ function renderRecentlyPlayed(tracks) {
           <p class="small">Duration: ${msToMinutesSeconds(t.duration_ms)}</p>
           <p class="small">Played at: ${new Date(item.played_at).toLocaleString()}</p>
         </div>
-      </article>);
+      </article>`);
   });
 }
 
@@ -307,9 +307,9 @@ function renderTopGenres(genres) {
   box.innerHTML = '';
   genres.forEach((g, i) => {
     box.insertAdjacentHTML('beforeend',
-      <article class="card genre-card" title="Top žánr #${i + 1}">
+      `<article class="card genre-card" title="Top žánr #${i + 1}">
         <h3>${i + 1}. ${g}</h3>
-      </article>);
+      </article>`);
   });
 }
 
@@ -320,7 +320,7 @@ function renderTopGenres(genres) {
 function msToMinutesSeconds(ms) {
   const min = Math.floor(ms / 60000);
   const sec = Math.floor((ms % 60000) / 1000);
-  return ${min}:${sec.toString().padStart(2, '0')};
+  return `${min}:${sec.toString().padStart(2, '0')}`;
 }
 
 /*************************************************************************
@@ -338,13 +338,12 @@ async function loadUserData() {
     renderRecentlyPlayed(recentData.items);
   } catch (error) {
     $('#recent-list').innerHTML = 
-      <div style="grid-column:1/-1; text-align:center; color:#ff6b6b;">
+      `<div style="grid-column:1/-1; text-align:center; color:#ff6b6b;">
         <p>${error.message}</p>
         <button onclick="logout()" class="btn" style="margin-top:1rem;">
           Logout & Refresh Permissions
         </button>
-      </div>
-    ;
+      </div>`;
   }
   try {
     userProfile = await fetchUserProfile();
@@ -352,17 +351,15 @@ async function loadUserData() {
     // Zobraz uživatele vlevo nahoře
     const userInfo = $('#user-info');
     userInfo.innerHTML = 
-      <img src="${userProfile.images?.[0]?.url || ''}" alt="User avatar" style="width:40px; height:40px; border-radius:50%; margin-right:0.5rem;">
-      <span>${userProfile.display_name}</span>;
-
+      `<img src="${userProfile.images?.[0]?.url || ''}" alt="User avatar" style="width:40px; height:40px; border-radius:50%; margin-right:0.5rem;">
+      <span>${userProfile.display_name}</span>`;
     userInfo.style.cursor = 'pointer';
     userInfo.title = 'Otevřít Spotify profil';
 
     userInfo.onclick = () => {
-      const url = userProfile.external_urls?.spotify || https://open.spotify.com/user/${userProfile.id};
+      const url = userProfile.external_urls?.spotify || `https://open.spotify.com/user/${userProfile.id}`;
       window.open(url, '_blank');
     };
-    $('#logout-btn').style.display = 'inline-block';
 
     $('#user-section').hidden = false;
     $('#login-btn').style.display = 'none';
@@ -384,7 +381,7 @@ async function loadUserData() {
       renderRecentlyPlayed(recentData.items);
     } catch (recentError) {
       console.error('Error loading recently played:', recentError);
-      $('#recent-list').innerHTML = <p style="color: #bbb; text-align: center; grid-column: 1/-1;">Could not load recently played tracks: ${recentError.message}</p>;
+      $('#recent-list').innerHTML = `<p style="color: #bbb; text-align: center; grid-column: 1/-1;">Could not load recently played tracks: ${recentError.message}</p>`;
     }
 
     // Genres z top artistů
@@ -423,12 +420,10 @@ function init() {
 
   // Přepínání panelů
   document.querySelectorAll('.tab').forEach(btn => {
-    btn.addEventListener('click', e => {
+    btn.addEventListener('click', () => {
       switchPanel(btn.dataset.target);
     });
   });
-
-  // Dropdown pro time_range
   const timeRangeSelect = document.querySelector('#time-range-select');
   if (timeRangeSelect) {
     timeRangeSelect.addEventListener('change', async e => {
