@@ -2,8 +2,13 @@
  * KONFIGURACE
  *************************************************************************/
 const CLIENT_ID = 'e4f69f9108aa4e72bc268fffab71b7fb';  // <-- Zde vlož svoje Client ID
-const REDIRECT_URI = 'http://127.0.0.1:5500/index.html'; // Tvůj redirect URI
-const SCOPES = 'user-top-read';
+const REDIRECT_URI = 'https://v-track-me.vercel.app'; // Tvůj redirect URI
+const SCOPES = [
+  'user-top-read',
+  'user-read-recently-played',
+  'user-read-private',
+  'user-read-email'
+].join(' ');
 
 let codeVerifier = null;
 let accessToken = null;
@@ -68,6 +73,7 @@ async function login() {
   url.searchParams.set('scope', SCOPES);
   url.searchParams.set('code_challenge_method', 'S256');
   url.searchParams.set('code_challenge', codeChallenge);
+  url.searchParams.set('show_dialog', 'true');  // ← PŘIDÁNO
 
   window.location = url.toString();
 }
@@ -146,9 +152,37 @@ async function fetchUserTop(type, limit = 50) {
   return await res.json();
 }
 
+async function fetchRecentlyPlayed(limit = 50) {
+  try {
+    const url = https://api.spotify.com/v1/me/player/recently-played?limit=${limit};
+    const res = await fetch(url, {
+      headers: { 
+        'Authorization': Bearer ${accessToken},
+        'Content-Type': 'application/json'
+      }
+    });
+    
+    if (res.status === 403) {
+      throw new Error('Please log out and log back in to grant permissions');
+    }
+    
+    if (!res.ok) {
+      const error = await res.json();
+      throw new Error(error.error.message || 'Failed to load recently played');
+    }
+    
+    return await res.json();
+  } catch (error) {
+    console.error('Recently played error:', error);
+    throw error;
+  }
+}
+
 async function fetchUserTopTracks(limit = 50) {
   return await fetchUserTop('tracks', limit);
 }
+
+
 
 /**
  * Z top tracků sestaví top alba (dle frekvence)
@@ -248,6 +282,26 @@ function renderTopTracks(tracks) {
   });
 }
 
+function renderRecentlyPlayed(tracks) {
+  const box = $('#recent-list');
+  box.innerHTML = '';
+  tracks.forEach((item, i) => {
+    const t = item.track;
+    const url = t.external_urls.spotify || https://open.spotify.com/track/${t.id};
+    box.insertAdjacentHTML('beforeend',
+      <article class="card" style="cursor:pointer" onclick="window.open('${url}','_blank')">
+        <img src="${t.album.images[1]?.url || t.album.images[0]?.url || ''}" alt="Track image">
+        <div>
+          <h3>${i + 1}. ${t.name}</h3>
+          <p class="small">Artists: ${t.artists.map(artist => artist.name).join(', ')}</p>
+          <p class="small">Album: ${t.album.name}</p>
+          <p class="small">Duration: ${msToMinutesSeconds(t.duration_ms)}</p>
+          <p class="small">Played at: ${new Date(item.played_at).toLocaleString()}</p>
+        </div>
+      </article>);
+  });
+}
+
 function renderTopGenres(genres) {
   const box = $('#genres-list');
   box.innerHTML = '';
@@ -258,6 +312,7 @@ function renderTopGenres(genres) {
       </article>);
   });
 }
+
 
 /*************************************************************************
  * HELPER: převod milisekund na minuty a sekundy
@@ -273,28 +328,40 @@ function msToMinutesSeconds(ms) {
  *************************************************************************/
 async function loadUserData() {
   $('#login-prompt').style.display = 'none';
-$('#user-section').hidden = false;
-$('#login-btn').style.display = 'none';
-$('#logout-btn').style.display = 'inline-block';
+  $('#user-section').hidden = false;
+  $('#login-btn').style.display = 'none';
+  $('#logout-btn').style.display = 'inline-block';
   if (!accessToken) return;
 
+   try {
+    const recentData = await fetchRecentlyPlayed();
+    renderRecentlyPlayed(recentData.items);
+  } catch (error) {
+    $('#recent-list').innerHTML = 
+      <div style="grid-column:1/-1; text-align:center; color:#ff6b6b;">
+        <p>${error.message}</p>
+        <button onclick="logout()" class="btn" style="margin-top:1rem;">
+          Logout & Refresh Permissions
+        </button>
+      </div>
+    ;
+  }
   try {
     userProfile = await fetchUserProfile();
 
     // Zobraz uživatele vlevo nahoře
     const userInfo = $('#user-info');
     userInfo.innerHTML = 
-  <img src="${userProfile.images?.[0]?.url || ''}" alt="User avatar" style="width:40px; height:40px; border-radius:50%; margin-right:0.5rem;">
-  <span>${userProfile.display_name}</span>
-;
+      <img src="${userProfile.images?.[0]?.url || ''}" alt="User avatar" style="width:40px; height:40px; border-radius:50%; margin-right:0.5rem;">
+      <span>${userProfile.display_name}</span>;
 
-userInfo.style.cursor = 'pointer';
-userInfo.title = 'Otevřít Spotify profil';
+    userInfo.style.cursor = 'pointer';
+    userInfo.title = 'Otevřít Spotify profil';
 
-userInfo.onclick = () => {
-  const url = userProfile.external_urls?.spotify || https://open.spotify.com/user/${userProfile.id};
-  window.open(url, '_blank');
-};
+    userInfo.onclick = () => {
+      const url = userProfile.external_urls?.spotify || https://open.spotify.com/user/${userProfile.id};
+      window.open(url, '_blank');
+    };
     $('#logout-btn').style.display = 'inline-block';
 
     $('#user-section').hidden = false;
@@ -310,6 +377,15 @@ userInfo.onclick = () => {
     renderTopArtists(artistsData.items);
     renderTopAlbums(albumsData.items);
     renderTopTracks(tracksData.items);
+
+    // Try to load recently played tracks separately
+    try {
+      const recentData = await fetchRecentlyPlayed();
+      renderRecentlyPlayed(recentData.items);
+    } catch (recentError) {
+      console.error('Error loading recently played:', recentError);
+      $('#recent-list').innerHTML = <p style="color: #bbb; text-align: center; grid-column: 1/-1;">Could not load recently played tracks: ${recentError.message}</p>;
+    }
 
     // Genres z top artistů
     const topGenres = extractTopGenres(artistsData.items);
