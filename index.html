@@ -42,28 +42,12 @@
     </div>
 
     <nav>
-  <button class="tab active" data-target="artists-panel">Artists</button>
-  <button class="tab" data-target="albums-panel">Albums</button>
-  <button class="tab" data-target="tracks-panel">Tracks</button>
-  <button class="tab" data-target="genres-panel">Genres</button>
-  <button class="tab" data-target="recent-panel">Recently Played</button>
-  <button class="tab" data-target="stats-panel">Stats</button>
-  <button class="tab" data-target="charts-panel">Charts</button>
-</nav>
-
-<div id="stats-panel" class="panel">
-  <div id="stats-cards" class="list"></div>
-</div>
-
-<div id="charts-panel" class="panel">
-  <div class="chart-container">
-    <canvas id="genreChart"></canvas>
-  </div>
-  <div class="chart-container">
-    <canvas id="weekChart"></canvas>
-  </div>
-</div>
-
+      <button class="tab active" data-target="artists-panel">Artists</button>
+      <button class="tab" data-target="albums-panel">Albums</button>
+      <button class="tab" data-target="tracks-panel">Tracks</button>
+      <button class="tab" data-target="genres-panel">Genres</button>
+      <button class="tab" data-target="recent-panel">Recently Played</button>
+    </nav>
 
     <div id="artists-panel" class="panel active">
       <div id="artists-list" class="list"></div>
@@ -90,6 +74,5 @@
   </footer>
 
 <script src="app.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </body>
 </html>
