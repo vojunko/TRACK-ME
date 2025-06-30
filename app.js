@@ -1,34 +1,31 @@
 /*************************************************************************
  * KONFIGURACE
  *************************************************************************/
-const CLIENT_ID = 'e4f69f9108aa4e72bc268fffab71b7fb';
-const REDIRECT_URI = 'https://v-track-me.vercel.app';
+const CLIENT_ID = 'e4f69f9108aa4e72bc268fffab71b7fb';  // <-- Zde vlož svoje Client ID
+const REDIRECT_URI = 'https://v-track-me.vercel.app'; // Tvůj redirect URI
 const SCOPES = [
   'user-top-read',
   'user-read-recently-played',
   'user-read-private',
-  'user-read-email',
-  'user-read-playback-state',
-  'user-library-read'
+  'user-read-email'
 ].join(' ');
 
 let codeVerifier = null;
 let accessToken = null;
 let userProfile = null;
+
+// Výchozí time_range
 let timeRange = 'medium_term';
-let audioFeaturesChart = null;
-let radarChart = null;
 
 /*************************************************************************
  * POMOCNÉ FUNKCE
  *************************************************************************/
 const $ = s => document.querySelector(s);
 
-function toast(msg, isError = false) {
+function toast(msg) {
   const t = $('#toast');
   t.textContent = msg;
   t.style.opacity = 1;
-  t.style.background = isError ? '#ff6b6bcc' : '#1db954cc';
   setTimeout(() => t.style.opacity = 0, 3000);
 }
 
@@ -37,20 +34,6 @@ function switchPanel(id) {
   document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
   $(`#${id}`).classList.add('active');
   document.querySelector(`.tab[data-target="${id}"]`).classList.add('active');
-  
-  // Special handling for charts
-  if (id === 'audio-features-panel' && audioFeaturesChart) {
-    setTimeout(() => audioFeaturesChart.update(), 100);
-  }
-  if (id === 'overview-panel' && radarChart) {
-    setTimeout(() => radarChart.update(), 100);
-  }
-}
-
-function msToMinutesSeconds(ms) {
-  const min = Math.floor(ms / 60000);
-  const sec = Math.floor((ms % 60000) / 1000);
-  return `${min}:${sec.toString().padStart(2, '0')}`;
 }
 
 /*************************************************************************
@@ -90,7 +73,7 @@ async function login() {
   url.searchParams.set('scope', SCOPES);
   url.searchParams.set('code_challenge_method', 'S256');
   url.searchParams.set('code_challenge', codeChallenge);
-  url.searchParams.set('show_dialog', 'true');
+  url.searchParams.set('show_dialog', 'true');  // ← PŘIDÁNO
 
   window.location = url.toString();
 }
@@ -137,7 +120,7 @@ async function getAccessToken(code) {
 function handleRedirect() {
   const params = new URLSearchParams(window.location.search);
   if (params.has('error')) {
-    toast(`Login error: ${params.get('error')}`, true);
+    toast(`Chyba při přihlášení: ${params.get('error')}`);
     history.replaceState(null, '', REDIRECT_URI);
     return false;
   }
@@ -156,7 +139,7 @@ async function fetchUserProfile() {
   const res = await fetch('https://api.spotify.com/v1/me', {
     headers: { Authorization: `Bearer ${accessToken}` }
   });
-  if (!res.ok) throw new Error('Failed to load user profile');
+  if (!res.ok) throw new Error('Nepodařilo se načíst profil uživatele');
   return await res.json();
 }
 
@@ -199,17 +182,11 @@ async function fetchUserTopTracks(limit = 50) {
   return await fetchUserTop('tracks', limit);
 }
 
-async function fetchAudioFeatures(trackIds) {
-  if (!trackIds || trackIds.length === 0) return [];
-  const ids = trackIds.join(',');
-  const res = await fetch(`https://api.spotify.com/v1/audio-features?ids=${ids}`, {
-    headers: { Authorization: `Bearer ${accessToken}` }
-  });
-  if (!res.ok) throw new Error('Failed to load audio features');
-  const data = await res.json();
-  return data.audio_features;
-}
 
+
+/**
+ * Z top tracků sestaví top alba (dle frekvence)
+ */
 async function fetchUserTopAlbumsFromTracks(limit = 50) {
   const topTracksData = await fetchUserTopTracks(50);
 
@@ -231,6 +208,9 @@ async function fetchUserTopAlbumsFromTracks(limit = 50) {
   return { items: sortedAlbums };
 }
 
+/**
+ * Z umělců vyextrahuje top žánry (10 nejčastějších)
+ */
 function extractTopGenres(artists) {
   const genreCounts = {};
   artists.forEach(artist => {
@@ -248,7 +228,7 @@ function extractTopGenres(artists) {
 }
 
 /*************************************************************************
- * RENDER FUNKCE
+ * RENDER FUNKCE (přidán link na Spotify u všech výsledků)
  *************************************************************************/
 function renderTopArtists(artists) {
   const box = $('#artists-list');
@@ -261,7 +241,7 @@ function renderTopArtists(artists) {
         <div>
           <h3>${i + 1}. ${a.name}</h3>
           <p class="small">Followers: ${a.followers.total.toLocaleString()}</p>
-          <p class="small">Genres: ${a.genres.slice(0, 3).join(', ')}${a.genres.length > 3 ? '...' : ''}</p>
+          <p class="small">Genres: ${a.genres.join(', ')}</p>
         </div>
       </article>`);
   });
@@ -327,451 +307,24 @@ function renderTopGenres(genres) {
   box.innerHTML = '';
   genres.forEach((g, i) => {
     box.insertAdjacentHTML('beforeend',
-      `<article class="card genre-card" title="Top genre #${i + 1}">
+      `<article class="card genre-card" title="Top žánr #${i + 1}">
         <h3>${i + 1}. ${g}</h3>
       </article>`);
   });
 }
 
-function renderAudioFeaturesChart(features) {
-  const ctx = document.getElementById('audio-features-chart').getContext('2d');
-  
-  if (audioFeaturesChart) {
-    audioFeaturesChart.destroy();
-  }
-  
-  // Calculate averages
-  const averages = {
-    danceability: 0,
-    energy: 0,
-    speechiness: 0,
-    acousticness: 0,
-    instrumentalness: 0,
-    liveness: 0,
-    valence: 0
-  };
-  
-  features.forEach(f => {
-    if (!f) return;
-    averages.danceability += f.danceability;
-    averages.energy += f.energy;
-    averages.speechiness += f.speechiness;
-    averages.acousticness += f.acousticness;
-    averages.instrumentalness += f.instrumentalness;
-    averages.liveness += f.liveness;
-    averages.valence += f.valence;
-  });
-  
-  const count = features.filter(f => f).length;
-  Object.keys(averages).forEach(k => {
-    averages[k] = (averages[k] / count) * 100;
-  });
-  
-  audioFeaturesChart = new Chart(ctx, {
-    type: 'bar',
-    data: {
-      labels: ['Danceability', 'Energy', 'Speechiness', 'Acousticness', 'Instrumentalness', 'Liveness', 'Mood'],
-      datasets: [{
-        label: 'Average %',
-        data: [
-          averages.danceability,
-          averages.energy,
-          averages.speechiness,
-          averages.acousticness,
-          averages.instrumentalness,
-          averages.liveness,
-          averages.valence
-        ],
-        backgroundColor: [
-          'rgba(29, 185, 84, 0.7)',
-          'rgba(29, 185, 84, 0.7)',
-          'rgba(29, 185, 84, 0.7)',
-          'rgba(29, 185, 84, 0.7)',
-          'rgba(29, 185, 84, 0.7)',
-          'rgba(29, 185, 84, 0.7)',
-          'rgba(29, 185, 84, 0.7)'
-        ],
-        borderColor: [
-          'rgba(29, 185, 84, 1)',
-          'rgba(29, 185, 84, 1)',
-          'rgba(29, 185, 84, 1)',
-          'rgba(29, 185, 84, 1)',
-          'rgba(29, 185, 84, 1)',
-          'rgba(29, 185, 84, 1)',
-          'rgba(29, 185, 84, 1)'
-        ],
-        borderWidth: 1
-      }]
-    },
-    options: {
-      responsive: true,
-      scales: {
-        y: {
-          beginAtZero: true,
-          max: 100,
-          ticks: {
-            callback: function(value) {
-              return value + '%';
-            }
-          }
-        }
-      },
-      plugins: {
-        tooltip: {
-          callbacks: {
-            label: function(context) {
-              return context.parsed.y.toFixed(1) + '%';
-            }
-          }
-        }
-      }
-    }
-  });
-  
-  // Generate personality description
-  let description = '';
-  if (averages.energy > 70) description += 'You prefer high-energy tracks. ';
-  if (averages.danceability > 70) description += 'Your music is very danceable. ';
-  if (averages.acousticness > 50) description += 'You enjoy acoustic sounds. ';
-  if (averages.instrumentalness > 30) description += 'You appreciate instrumental music. ';
-  if (averages.valence > 60) description += 'Your music tends to be positive and cheerful. ';
-  if (averages.valence < 40) description += 'Your music tends to be more melancholic. ';
-  
-  $('#audio-features-description').innerHTML = `
-    <p>${description || 'Your music taste is well-balanced.'}</p>
-    <div class="feature-details">
-      <p><strong>Danceability:</strong> ${averages.danceability.toFixed(1)}%</p>
-      <p><strong>Energy:</strong> ${averages.energy.toFixed(1)}%</p>
-      <p><strong>Positivity (Valence):</strong> ${averages.valence.toFixed(1)}%</p>
-      <p><strong>Acousticness:</strong> ${averages.acousticness.toFixed(1)}%</p>
-    </div>
-  `;
-}
-
-function renderRadarChart(features) {
-  const ctx = document.getElementById('features-radar').getContext('2d');
-  
-  if (radarChart) {
-    radarChart.destroy();
-  }
-  
-  // Calculate averages
-  const averages = {
-    danceability: 0,
-    energy: 0,
-    speechiness: 0,
-    acousticness: 0,
-    instrumentalness: 0,
-    liveness: 0,
-    valence: 0,
-    tempo: 0
-  };
-  
-  const counts = {
-    danceability: 0,
-    energy: 0,
-    speechiness: 0,
-    acousticness: 0,
-    instrumentalness: 0,
-    liveness: 0,
-    valence: 0,
-    tempo: 0
-  };
-  
-  features.forEach(f => {
-    if (!f) return;
-    if (f.danceability) { averages.danceability += f.danceability; counts.danceability++; }
-    if (f.energy) { averages.energy += f.energy; counts.energy++; }
-    if (f.speechiness) { averages.speechiness += f.speechiness; counts.speechiness++; }
-    if (f.acousticness) { averages.acousticness += f.acousticness; counts.acousticness++; }
-    if (f.instrumentalness) { averages.instrumentalness += f.instrumentalness; counts.instrumentalness++; }
-    if (f.liveness) { averages.liveness += f.liveness; counts.liveness++; }
-    if (f.valence) { averages.valence += f.valence; counts.valence++; }
-    if (f.tempo) { averages.tempo += f.tempo; counts.tempo++; }
-  });
-  
-  // Normalize tempo (0-200 BPM to 0-1)
-  const normalizedTempo = (averages.tempo / counts.tempo) / 200;
-  
-  radarChart = new Chart(ctx, {
-    type: 'radar',
-    data: {
-      labels: ['Danceability', 'Energy', 'Speechiness', 'Acousticness', 'Instrumentalness', 'Liveness', 'Mood', 'Tempo'],
-      datasets: [{
-        label: 'Your Average',
-        data: [
-          averages.danceability / counts.danceability,
-          averages.energy / counts.energy,
-          averages.speechiness / counts.speechiness,
-          averages.acousticness / counts.acousticness,
-          averages.instrumentalness / counts.instrumentalness,
-          averages.liveness / counts.liveness,
-          averages.valence / counts.valence,
-          normalizedTempo
-        ],
-        backgroundColor: 'rgba(29, 185, 84, 0.2)',
-        borderColor: 'rgba(29, 185, 84, 1)',
-        pointBackgroundColor: 'rgba(29, 185, 84, 1)',
-        pointBorderColor: '#fff',
-        pointHoverBackgroundColor: '#fff',
-        pointHoverBorderColor: 'rgba(29, 185, 84, 1)'
-      }]
-    },
-    options: {
-      responsive: true,
-      scales: {
-        r: {
-          angleLines: {
-            display: true
-          },
-          suggestedMin: 0,
-          suggestedMax: 1,
-          ticks: {
-            display: false
-          }
-        }
-      },
-      plugins: {
-        legend: {
-          display: false
-        }
-      }
-    }
-  });
-}
-
-function renderOverview(topArtists, topTracks, features) {
-  // Top artist
-  if (topArtists.length > 0) {
-    const topArtist = topArtists[0];
-    $('#top-artist').innerHTML = `
-      <div class="overview-item">
-        <img src="${topArtist.images[0]?.url || ''}" alt="${topArtist.name}">
-        <div>
-          <h4>${topArtist.name}</h4>
-          <p>${topArtist.genres.slice(0, 2).join(', ')}</p>
-          <p>${topArtist.followers.total.toLocaleString()} followers</p>
-        </div>
-      </div>
-    `;
-  }
-  
-  // Top track
-  if (topTracks.length > 0) {
-    const topTrack = topTracks[0];
-    $('#top-track').innerHTML = `
-      <div class="overview-item">
-        <img src="${topTrack.album.images[0]?.url || ''}" alt="${topTrack.name}">
-        <div>
-          <h4>${topTrack.name}</h4>
-          <p>${topTrack.artists.map(a => a.name).join(', ')}</p>
-          <p>${msToMinutesSeconds(topTrack.duration_ms)}</p>
-        </div>
-      </div>
-    `;
-  }
-  
-  // Mood indicator
-  if (features.length > 0) {
-    const avgValence = features.reduce((sum, f) => sum + (f?.valence || 0), 0) / features.filter(f => f?.valence).length;
-    let mood = 'Neutral';
-    let emoji = '😐';
-    if (avgValence > 0.7) {
-      mood = 'Happy';
-      emoji = '😊';
-    } else if (avgValence > 0.4) {
-      mood = 'Positive';
-      emoji = '🙂';
-    } else if (avgValence > 0.2) {
-      mood = 'Melancholic';
-      emoji = '😔';
-    } else {
-      mood = 'Sad';
-      emoji = '😢';
-    }
-    
-    $('#mood-indicator').innerHTML = `
-      <div class="mood-display">
-        <span class="mood-emoji">${emoji}</span>
-        <span class="mood-text">${mood}</span>
-        <div class="mood-bar">
-          <div class="mood-progress" style="width: ${avgValence * 100}%"></div>
-        </div>
-      </div>
-    `;
-  }
-}
 
 /*************************************************************************
- * IMPORT DAT
+ * HELPER: převod milisekund na minuty a sekundy
  *************************************************************************/
-function setupFileUpload() {
-  const uploadArea = $('#upload-area');
-  const fileInput = $('#data-upload');
-  
-  // Handle drag and drop
-  uploadArea.addEventListener('dragover', (e) => {
-    e.preventDefault();
-    uploadArea.style.borderColor = '#1db954';
-  });
-  
-  uploadArea.addEventListener('dragleave', () => {
-    uploadArea.style.borderColor = '#444';
-  });
-  
-  uploadArea.addEventListener('drop', (e) => {
-    e.preventDefault();
-    uploadArea.style.borderColor = '#444';
-    if (e.dataTransfer.files.length > 0) {
-      fileInput.files = e.dataTransfer.files;
-      handleFileUpload({ target: fileInput });
-    }
-  });
-  
-  // Handle file selection
-  fileInput.addEventListener('change', handleFileUpload);
-}
-
-function handleFileUpload(event) {
-  const files = event.target.files;
-  if (!files || files.length === 0) return;
-  
-  $('#upload-progress').innerHTML = '<p>Processing files...</p>';
-  
-  let processedFiles = 0;
-  let allData = [];
-  
-  Array.from(files).forEach(file => {
-    const reader = new FileReader();
-    
-    reader.onload = (e) => {
-      try {
-        const data = JSON.parse(e.target.result);
-        
-        // Handle different Spotify export formats
-        if (Array.isArray(data)) {
-          // New format (StreamingHistory_X.json)
-          allData = allData.concat(data);
-        } else if (data && data.endTime) {
-          // Old format (endsong_X.json)
-          allData.push(data);
-        }
-        
-        processedFiles++;
-        $('#upload-progress').innerHTML = `<p>Processed ${processedFiles} of ${files.length} files</p>`;
-        
-        if (processedFiles === files.length) {
-          processImportedData(allData);
-        }
-      } catch (err) {
-        console.error('Error parsing file:', err);
-        $('#upload-progress').innerHTML += `<p style="color:red">Error processing ${file.name}: ${err.message}</p>`;
-      }
-    };
-    
-    reader.onerror = () => {
-      processedFiles++;
-      $('#upload-progress').innerHTML += `<p style="color:red">Error reading ${file.name}</p>`;
-    };
-    
-    if (file.name.match(/\.json$/i)) {
-      reader.readAsText(file);
-    } else {
-      processedFiles++;
-      $('#upload-progress').innerHTML += `<p style="color:orange">Skipping non-JSON file: ${file.name}</p>`;
-    }
-  });
-}
-
-function processImportedData(data) {
-  if (data.length === 0) {
-    $('#upload-progress').innerHTML += '<p style="color:red">No valid data found in files</p>';
-    return;
-  }
-  
-  // Process data (this is simplified - you'd want to do more analysis)
-  const playCounts = {};
-  const artistCounts = {};
-  const trackCounts = {};
-  const dateCounts = {};
-  
-  data.forEach(item => {
-    const trackName = item.trackName || item.master_metadata_track_name;
-    const artistName = item.artistName || item.master_metadata_album_artist_name;
-    const date = new Date(item.endTime || item.ts).toISOString().split('T')[0];
-    
-    if (trackName && artistName) {
-      const trackKey = `${trackName} - ${artistName}`;
-      trackCounts[trackKey] = (trackCounts[trackKey] || 0) + 1;
-      artistCounts[artistName] = (artistCounts[artistName] || 0) + 1;
-      dateCounts[date] = (dateCounts[date] || 0) + 1;
-    }
-  });
-  
-  // Sort results
-  const sortedTracks = Object.entries(trackCounts)
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, 10);
-  
-  const sortedArtists = Object.entries(artistCounts)
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, 10);
-  
-  // Display results
-  let html = `
-    <div class="imported-stats">
-      <div class="stat-box">
-        <h4>Total Streams</h4>
-        <p class="big-number">${data.length}</p>
-      </div>
-      <div class="stat-box">
-        <h4>Unique Tracks</h4>
-        <p class="big-number">${Object.keys(trackCounts).length}</p>
-      </div>
-      <div class="stat-box">
-        <h4>Unique Artists</h4>
-        <p class="big-number">${Object.keys(artistCounts).length}</p>
-      </div>
-    </div>
-    
-    <div class="imported-columns">
-      <div class="imported-column">
-        <h4>Top Tracks</h4>
-        <ol class="imported-list">
-          ${sortedTracks.map(([track, count]) => `
-            <li>
-              <span class="track-name">${track.split(' - ')[0]}</span>
-              <span class="artist-name">${track.split(' - ')[1]}</span>
-              <span class="play-count">${count} plays</span>
-            </li>
-          `).join('')}
-        </ol>
-      </div>
-      
-      <div class="imported-column">
-        <h4>Top Artists</h4>
-        <ol class="imported-list">
-          ${sortedArtists.map(([artist, count]) => `
-            <li>
-              <span class="artist-name">${artist}</span>
-              <span class="play-count">${count} plays</span>
-            </li>
-          `).join('')}
-        </ol>
-      </div>
-    </div>
-  `;
-  
-  $('#imported-stats-container').innerHTML = html;
-  $('#imported-data-stats').style.display = 'block';
-  $('#upload-progress').innerHTML += '<p style="color:#1db954">Data import complete!</p>';
-  
-  // Store data in localStorage for future sessions
-  localStorage.setItem('importedData', JSON.stringify(data));
+function msToMinutesSeconds(ms) {
+  const min = Math.floor(ms / 60000);
+  const sec = Math.floor((ms % 60000) / 1000);
+  return `${min}:${sec.toString().padStart(2, '0')}`;
 }
 
 /*************************************************************************
- * HLAVNÍ NAČTENÍ DAT
+ * Hlavní načtení uživatelských dat dle timeRange
  *************************************************************************/
 async function loadUserData() {
   $('#login-prompt').style.display = 'none';
@@ -780,54 +333,68 @@ async function loadUserData() {
   $('#logout-btn').style.display = 'inline-block';
   if (!accessToken) return;
 
+   try {
+    const recentData = await fetchRecentlyPlayed();
+    renderRecentlyPlayed(recentData.items);
+  } catch (error) {
+    $('#recent-list').innerHTML = `
+      <div style="grid-column:1/-1; text-align:center; color:#ff6b6b;">
+        <p>${error.message}</p>
+        <button onclick="logout()" class="btn" style="margin-top:1rem;">
+          Logout & Refresh Permissions
+        </button>
+      </div>
+    `;
+  }
   try {
     userProfile = await fetchUserProfile();
 
-    // Display user info
+    // Zobraz uživatele vlevo nahoře
     const userInfo = $('#user-info');
     userInfo.innerHTML = 
       `<img src="${userProfile.images?.[0]?.url || ''}" alt="User avatar" style="width:40px; height:40px; border-radius:50%; margin-right:0.5rem;">
       <span>${userProfile.display_name}</span>`;
 
     userInfo.style.cursor = 'pointer';
-    userInfo.title = 'Open Spotify profile';
+    userInfo.title = 'Otevřít Spotify profil';
+
     userInfo.onclick = () => {
       const url = userProfile.external_urls?.spotify || `https://open.spotify.com/user/${userProfile.id}`;
       window.open(url, '_blank');
     };
+    $('#logout-btn').style.display = 'inline-block';
 
-    // Load all data in parallel
-    const [artistsData, albumsData, tracksData, recentData] = await Promise.all([
+    $('#user-section').hidden = false;
+    $('#login-btn').style.display = 'none';
+
+    // Načti a vykresli top data
+    const [artistsData, albumsData, tracksData] = await Promise.all([
       fetchUserTop('artists'),
       fetchUserTopAlbumsFromTracks(),
-      fetchUserTopTracks(),
-      fetchRecentlyPlayed().catch(e => ({ items: [] })) // Graceful fallback
+      fetchUserTopTracks()
     ]);
 
-    // Get audio features for top tracks
-    const trackIds = tracksData.items.map(t => t.id).filter(id => id);
-    const audioFeatures = await fetchAudioFeatures(trackIds);
-
-    // Render all sections
     renderTopArtists(artistsData.items);
     renderTopAlbums(albumsData.items);
     renderTopTracks(tracksData.items);
-    renderRecentlyPlayed(recentData.items);
-    
-    // Genres from top artists
+
+    // Try to load recently played tracks separately
+    try {
+      const recentData = await fetchRecentlyPlayed();
+      renderRecentlyPlayed(recentData.items);
+    } catch (recentError) {
+      console.error('Error loading recently played:', recentError);
+      $('#recent-list').innerHTML = `<p style="color: #bbb; text-align: center; grid-column: 1/-1;">Could not load recently played tracks: ${recentError.message}</p>`;
+    }
+
+    // Genres z top artistů
     const topGenres = extractTopGenres(artistsData.items);
     renderTopGenres(topGenres);
-    
-    // Audio features
-    renderAudioFeaturesChart(audioFeatures);
-    renderRadarChart(audioFeatures);
-    
-    // Overview
-    renderOverview(artistsData.items, tracksData.items, audioFeatures);
 
   } catch (e) {
-    toast('Error loading data: ' + e.message, true);
+    toast('Chyba při načítání dat: ' + e.message);
     if (e.message.includes('401')) {
+      // Token expiroval, odhlásit
       logout();
     }
   }
@@ -837,15 +404,15 @@ async function loadUserData() {
  * INICIALIZACE
  *************************************************************************/
 function init() {
-  // Handle Spotify redirect
   const code = handleRedirect();
+
   if (code) {
     getAccessToken(code).then(token => {
       accessToken = token;
       localStorage.setItem('access_token', token);
       loadUserData();
     }).catch(err => {
-      toast('Login error: ' + err.message, true);
+      toast('Chyba přihlášení: ' + err.message);
     });
   } else {
     accessToken = localStorage.getItem('access_token');
@@ -854,14 +421,14 @@ function init() {
     }
   }
 
-  // Tab switching
+  // Přepínání panelů
   document.querySelectorAll('.tab').forEach(btn => {
     btn.addEventListener('click', e => {
       switchPanel(btn.dataset.target);
     });
   });
 
-  // Time range selector
+  // Dropdown pro time_range
   const timeRangeSelect = document.querySelector('#time-range-select');
   if (timeRangeSelect) {
     timeRangeSelect.addEventListener('change', async e => {
@@ -869,25 +436,14 @@ function init() {
       await loadUserData();
     });
   }
-
-  // Setup file upload
-  setupFileUpload();
-  
-  // Check for previously imported data
-  const importedData = localStorage.getItem('importedData');
-  if (importedData) {
-    try {
-      processImportedData(JSON.parse(importedData));
-    } catch (e) {
-      console.error('Error loading saved data:', e);
-    }
-  }
 }
 
-// Initialize when DOM is loaded
+// Po načtení DOM spustíme init
 document.addEventListener('DOMContentLoaded', init);
 
-// Event listeners
+/*************************************************************************
+ * Odkaz na přihlášení
+ *************************************************************************/
 $('#login-btn').addEventListener('click', login);
 $('#logout-btn').addEventListener('click', logout);
 $('#login-btn-prompt').addEventListener('click', login);
