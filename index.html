@@ -13,23 +13,22 @@
   <div id="user-info" style="display: inline-flex; align-items: center; position: absolute; left: 1rem; top: 50%; transform: translateY(-50%); cursor:pointer;"></div>
   <h1>TRACK ME</h1>
   <button id="login-btn" class="btn" style="position: absolute; right: 1rem; top: 50%; transform: translateY(-50%); display: none;">
-    
   </button>
   <button id="logout-btn" class="btn">
     Logout
-</button>
+  </button>
 </header>
 
 <main>
   <div id="loading-spinner" style="display:none;">Loading...</div>
-<div id="login-prompt">
-  <h2 style="font-size: 2rem; margin-bottom: 1rem;">
-    Please log in to view your personalized Spotify statistics!
-  </h2>
-  <button id="login-btn-prompt" class="btn" style="padding: 0.6rem 1.2rem; font-size: 1rem;">
-    Login to Spotify
-  </button>
-</div>
+  <div id="login-prompt">
+    <h2 style="font-size: 2rem; margin-bottom: 1rem;">
+      Please log in to view your personalized Spotify statistics!
+    </h2>
+    <button id="login-btn-prompt" class="btn" style="padding: 0.6rem 1.2rem; font-size: 1rem;">
+      Login to Spotify
+    </button>
+  </div>
   <section id="user-section" hidden>
     <!-- Výběr časového období -->
     <div style="text-align:center; margin-bottom:1rem;">
@@ -47,6 +46,7 @@
       <button class="tab" data-target="tracks-panel">Tracks</button>
       <button class="tab" data-target="genres-panel">Genres</button>
       <button class="tab" data-target="recent-panel">Recently Played</button>
+      <button class="tab" data-target="mood-panel">Mood</button> <!-- nový tab -->
     </nav>
 
     <div id="artists-panel" class="panel active">
@@ -64,14 +64,18 @@
     <div id="recent-panel" class="panel">
       <div id="recent-list" class="list"></div>
     </div>
+    <div id="mood-panel" class="panel">
+      <div id="mood-display" style="text-align:center; font-size: 6rem; padding: 2rem; color:#1db954;"></div>
+      <div id="mood-description" style="text-align:center; font-size:1.2rem; margin-top:1rem; color:#eee;"></div>
+    </div>
   </section>
 </main>
 
 <div id="toast"></div>
 
 <footer>
-    <p class="footer">Using Spotify WEB API | © 2025 vojunko</p>
-  </footer>
+  <p class="footer">Using Spotify WEB API | © 2025 vojunko</p>
+</footer>
 
 <script src="app.js"></script>
 </body>
