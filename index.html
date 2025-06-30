@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>TRACK ME</title>
   <link rel="stylesheet" href="styles.css" />
+  <link rel="icon" href="https://icons.iconarchive.com/icons/elegantthemes/beautiful-flat/256/Bar-Chart-icon.png" type="image/png">
 </head>
 <body>
 
@@ -20,6 +21,7 @@
 </header>
 
 <main>
+  <div id="loading-spinner" style="display:none;">Loading...</div>
 <div id="login-prompt">
   <h2 style="font-size: 2rem; margin-bottom: 1rem;">
     Please log in to view your personalized Spotify statistics!
@@ -44,6 +46,7 @@
       <button class="tab" data-target="albums-panel">Albums</button>
       <button class="tab" data-target="tracks-panel">Tracks</button>
       <button class="tab" data-target="genres-panel">Genres</button>
+      <button class="tab" data-target="recent-panel">Recently Played</button>
     </nav>
 
     <div id="artists-panel" class="panel active">
@@ -57,6 +60,9 @@
     </div>
     <div id="genres-panel" class="panel">
       <div id="genres-list" class="list genres-list"></div>
+    </div>
+    <div id="recent-panel" class="panel">
+      <div id="recent-list" class="list"></div>
     </div>
   </section>
 </main>
