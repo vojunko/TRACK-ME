@@ -22,10 +22,9 @@ let timeRange = 'medium_term';
  *************************************************************************/
 const $ = s => document.querySelector(s);
 
-function toast(msg, isError = false) {
+function toast(msg) {
   const t = $('#toast');
   t.textContent = msg;
-  t.style.backgroundColor = isError ? '#ff6b6b' : '#333';
   t.style.opacity = 1;
   setTimeout(() => t.style.opacity = 0, 3000);
 }
@@ -89,14 +88,8 @@ function logout() {
   $('#login-btn').style.display = 'none';
   $('#user-info').innerHTML = '';
   $('#logout-btn').style.display = 'none';
-
-  // Vyčistit data z panelů
-  clearAllLists();
 }
 
-/*************************************************************************
- * ZÍSKÁNÍ ACCESS TOKENU
- *************************************************************************/
 async function getAccessToken(code) {
   const codeVerifier = localStorage.getItem('code_verifier');
   if (!codeVerifier) throw new Error('Code verifier not found in localStorage');
@@ -127,7 +120,7 @@ async function getAccessToken(code) {
 function handleRedirect() {
   const params = new URLSearchParams(window.location.search);
   if (params.has('error')) {
-    toast(`Chyba při přihlášení: ${params.get('error')}`, true);
+    toast(`Chyba při přihlášení: ${params.get('error')}`);
     history.replaceState(null, '', REDIRECT_URI);
     return false;
   }
@@ -188,6 +181,8 @@ async function fetchRecentlyPlayed(limit = 50) {
 async function fetchUserTopTracks(limit = 50) {
   return await fetchUserTop('tracks', limit);
 }
+
+
 
 /**
  * Z top tracků sestaví top alba (dle frekvence)
@@ -318,6 +313,7 @@ function renderTopGenres(genres) {
   });
 }
 
+
 /*************************************************************************
  * HELPER: převod milisekund na minuty a sekundy
  *************************************************************************/
@@ -328,167 +324,126 @@ function msToMinutesSeconds(ms) {
 }
 
 /*************************************************************************
- * ČIŠTĚNÍ VÝPISŮ
+ * Hlavní načtení uživatelských dat dle timeRange
  *************************************************************************/
-function clearAllLists() {
-  ['artists-list', 'albums-list', 'tracks-list', 'recent-list', 'genres-list'].forEach(id => {
-    const el = document.getElementById(id);
-    if (el) el.innerHTML = '';
-  });
-}
+async function loadUserData() {
+  $('#login-prompt').style.display = 'none';
+  $('#user-section').hidden = false;
+  $('#login-btn').style.display = 'none';
+  $('#logout-btn').style.display = 'inline-block';
+  if (!accessToken) return;
 
-/*************************************************************************
- * EVENT HANDLERY
- *************************************************************************/
-$('#login-btn').addEventListener('click', () => {
-  login();
-});
-
-$('#logout-btn').addEventListener('click', () => {
-  logout();
-});
-
-$('#time-range-select').addEventListener('change', e => {
-  timeRange = e.target.value;
-  if (accessToken) {
-    loadAllData();
-  }
-});
-
-/*************************************************************************
- * NOVÁ FUNKCE: Import JSON souboru a jeho zpracování
- *************************************************************************/
-$('#import-json-btn').addEventListener('click', () => {
-  $('#import-json-input').click();
-});
-
-document.addEventListener('DOMContentLoaded', () => {
-  const importInput = document.querySelector('#json-import');
-
-  if (importInput) {
-    importInput.addEventListener('change', e => {
-      const file = e.target.files[0];
-      if (!file) return;
-
-      const reader = new FileReader();
-      reader.onload = function(event) {
-        try {
-          const data = JSON.parse(event.target.result);
-          console.log('Imported JSON:', data);
-          // tady zavolej funkci na zpracování dat
-        } catch (err) {
-          alert('Neplatný JSON soubor!');
-        }
-      };
-      reader.readAsText(file);
-    });
-  }
-});} catch (err) {
-      toast('Chyba při importu JSON: ' + err.message, true);
-    }
-  };
-  reader.readAsText(file);
-});
-
-function processImportedJson(json) {
-  clearAllLists();
-
-  // Předpokládám, že importovaný JSON má strukturu podobnou Spotify top items
-  if (json.artists) {
-    renderTopArtists(json.artists.items || json.artists);
-  }
-  if (json.albums) {
-    renderTopAlbums(json.albums.items || json.albums);
-  }
-  if (json.tracks) {
-    renderTopTracks(json.tracks.items || json.tracks);
-  }
-  if (json.recently_played) {
-    renderRecentlyPlayed(json.recently_played.items || json.recently_played);
-  }
-  if (json.genres) {
-    renderTopGenres(json.genres);
-  }
-
-  switchPanel('imported-panel');
-}
-
-/*************************************************************************
- * NAČÍTÁNÍ DAT PŘI PŘIHLÁŠENÍ
- *************************************************************************/
-async function loadAllData() {
-  try {
-    clearAllLists();
-    $('#loading').style.display = 'block';
-
-    const [profile, topArtistsData, topAlbumsData, topTracksData, recentData] = await Promise.all([
-      fetchUserProfile(),
-      fetchUserTop('artists'),
-      fetchUserTopAlbumsFromTracks(),
-      fetchUserTop('tracks'),
-      fetchRecentlyPlayed()
-    ]);
-
-    userProfile = profile;
-
-    // Render profil a UI
-    $('#user-info').innerHTML = `
-      <img src="${profile.images[0]?.url || ''}" alt="User" class="avatar" />
-      <p>${profile.display_name}</p>
+   try {
+    const recentData = await fetchRecentlyPlayed();
+    renderRecentlyPlayed(recentData.items);
+  } catch (error) {
+    $('#recent-list').innerHTML = `
+      <div style="grid-column:1/-1; text-align:center; color:#ff6b6b;">
+        <p>${error.message}</p>
+        <button onclick="logout()" class="btn" style="margin-top:1rem;">
+          Logout & Refresh Permissions
+        </button>
+      </div>
     `;
-    $('#user-section').hidden = false;
-    $('#login-prompt').style.display = 'none';
+  }
+  try {
+    userProfile = await fetchUserProfile();
+
+    // Zobraz uživatele vlevo nahoře
+    const userInfo = $('#user-info');
+    userInfo.innerHTML = 
+      `<img src="${userProfile.images?.[0]?.url || ''}" alt="User avatar" style="width:40px; height:40px; border-radius:50%; margin-right:0.5rem;">
+      <span>${userProfile.display_name}</span>`;
+
+    userInfo.style.cursor = 'pointer';
+    userInfo.title = 'Otevřít Spotify profil';
+
+    userInfo.onclick = () => {
+      const url = userProfile.external_urls?.spotify || `https://open.spotify.com/user/${userProfile.id}`;
+      window.open(url, '_blank');
+    };
     $('#logout-btn').style.display = 'inline-block';
 
-    // Render všechno
-    renderTopArtists(topArtistsData.items);
-    renderTopAlbums(topAlbumsData.items);
-    renderTopTracks(topTracksData.items);
-    renderRecentlyPlayed(recentData.items);
+    $('#user-section').hidden = false;
+    $('#login-btn').style.display = 'none';
 
-    // Získat top žánry z top artists
-    const topGenres = extractTopGenres(topArtistsData.items);
+    // Načti a vykresli top data
+    const [artistsData, albumsData, tracksData] = await Promise.all([
+      fetchUserTop('artists'),
+      fetchUserTopAlbumsFromTracks(),
+      fetchUserTopTracks()
+    ]);
+
+    renderTopArtists(artistsData.items);
+    renderTopAlbums(albumsData.items);
+    renderTopTracks(tracksData.items);
+
+    // Try to load recently played tracks separately
+    try {
+      const recentData = await fetchRecentlyPlayed();
+      renderRecentlyPlayed(recentData.items);
+    } catch (recentError) {
+      console.error('Error loading recently played:', recentError);
+      $('#recent-list').innerHTML = `<p style="color: #bbb; text-align: center; grid-column: 1/-1;">Could not load recently played tracks: ${recentError.message}</p>`;
+    }
+
+    // Genres z top artistů
+    const topGenres = extractTopGenres(artistsData.items);
     renderTopGenres(topGenres);
 
-  } catch (error) {
-    console.error('Chyba při načítání dat:', error);
-    toast(error.message || 'Chyba při načítání dat', true);
-  } finally {
-    $('#loading').style.display = 'none';
+  } catch (e) {
+    toast('Chyba při načítání dat: ' + e.message);
+    if (e.message.includes('401')) {
+      // Token expiroval, odhlásit
+      logout();
+    }
   }
 }
 
 /*************************************************************************
- * STARTUP: zpracovat redirect a získat token
+ * INICIALIZACE
  *************************************************************************/
-(async () => {
+function init() {
   const code = handleRedirect();
+
   if (code) {
-    try {
-      accessToken = await getAccessToken(code);
-      localStorage.setItem('access_token', accessToken);
-    } catch (err) {
-      toast('Nepodařilo se získat přístupový token: ' + err.message, true);
-    }
+    getAccessToken(code).then(token => {
+      accessToken = token;
+      localStorage.setItem('access_token', token);
+      loadUserData();
+    }).catch(err => {
+      toast('Chyba přihlášení: ' + err.message);
+    });
   } else {
     accessToken = localStorage.getItem('access_token');
+    if (accessToken) {
+      loadUserData();
+    }
   }
 
-  if (accessToken) {
-    loadAllData();
-  } else {
-    $('#login-prompt').style.display = 'flex';
-    $('#login-btn').style.display = 'inline-block';
-    $('#logout-btn').style.display = 'none';
+  // Přepínání panelů
+  document.querySelectorAll('.tab').forEach(btn => {
+    btn.addEventListener('click', e => {
+      switchPanel(btn.dataset.target);
+    });
+  });
+
+  // Dropdown pro time_range
+  const timeRangeSelect = document.querySelector('#time-range-select');
+  if (timeRangeSelect) {
+    timeRangeSelect.addEventListener('change', async e => {
+      timeRange = e.target.value;
+      await loadUserData();
+    });
   }
-})();
+}
+
+// Po načtení DOM spustíme init
+document.addEventListener('DOMContentLoaded', init);
 
 /*************************************************************************
- * TAB NAVIGACE
+ * Odkaz na přihlášení
  *************************************************************************/
-document.querySelectorAll('.tab').forEach(tab => {
-  tab.addEventListener('click', () => {
-    const target = tab.getAttribute('data-target');
-    switchPanel(target);
-  });
-});
+$('#login-btn').addEventListener('click', login);
+$('#logout-btn').addEventListener('click', logout);
+$('#login-btn-prompt').addEventListener('click', login);
