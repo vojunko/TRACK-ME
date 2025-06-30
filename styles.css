@@ -41,8 +41,6 @@ header h1 {
   font-weight: 600;
   cursor: pointer;
   transition: background 0.3s, color 0.3s;
-  text-align: center;
-  display: inline-block;
 }
 
 .btn:hover {
@@ -206,18 +204,4 @@ footer {
   height: 70vh;
   color: #1db954;
   text-align: center;
-}
-
-/* Speciálně pro file input */
-#json-import {
-  cursor: pointer;
-  background: transparent;
-  border: 2px solid #1db954;
-  border-radius: 0.3rem;
-  color: #1db954;
-  font-weight: 600;
-  padding: 0.5rem;
-  width: 100%;
-  max-width: 400px;
-  box-sizing: border-box;
 }
