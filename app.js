@@ -362,16 +362,28 @@ $('#import-json-btn').addEventListener('click', () => {
   $('#import-json-input').click();
 });
 
-$('#import-json-input').addEventListener('change', e => {
-  const file = e.target.files[0];
-  if (!file) return;
-  const reader = new FileReader();
-  reader.onload = function(evt) {
-    try {
-      const json = JSON.parse(evt.target.result);
-      processImportedJson(json);
-      toast('JSON importován úspěšně');
-    } catch (err) {
+document.addEventListener('DOMContentLoaded', () => {
+  const importInput = document.querySelector('#json-import');
+
+  if (importInput) {
+    importInput.addEventListener('change', e => {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = function(event) {
+        try {
+          const data = JSON.parse(event.target.result);
+          console.log('Imported JSON:', data);
+          // tady zavolej funkci na zpracování dat
+        } catch (err) {
+          alert('Neplatný JSON soubor!');
+        }
+      };
+      reader.readAsText(file);
+    });
+  }
+});} catch (err) {
       toast('Chyba při importu JSON: ' + err.message, true);
     }
   };
