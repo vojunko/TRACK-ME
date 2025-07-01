@@ -1,8 +1,8 @@
 /*************************************************************************
  * KONFIGURACE
  *************************************************************************/
-const CLIENT_ID = 'e4f69f9108aa4e72bc268fffab71b7fb';  // <-- Zde vlož svoje Client ID
-const REDIRECT_URI = 'https://v-track-me.vercel.app'; // Tvůj redirect URI
+const CLIENT_ID = 'e4f69f9108aa4e72bc268fffab71b7fb';
+const REDIRECT_URI = 'https://v-track-me.vercel.app';
 const SCOPES = [
   'user-top-read',
   'user-read-recently-played',
@@ -13,8 +13,6 @@ const SCOPES = [
 let codeVerifier = null;
 let accessToken = null;
 let userProfile = null;
-
-// Výchozí time_range
 let timeRange = 'medium_term';
 
 /*************************************************************************
@@ -73,7 +71,7 @@ async function login() {
   url.searchParams.set('scope', SCOPES);
   url.searchParams.set('code_challenge_method', 'S256');
   url.searchParams.set('code_challenge', codeChallenge);
-  url.searchParams.set('show_dialog', 'true');  // ← PŘIDÁNO
+  url.searchParams.set('show_dialog', 'true');
 
   window.location = url.toString();
 }
@@ -161,16 +159,13 @@ async function fetchRecentlyPlayed(limit = 50) {
         'Content-Type': 'application/json'
       }
     });
-    
     if (res.status === 403) {
       throw new Error('Please log out and log back in to grant permissions');
     }
-    
     if (!res.ok) {
       const error = await res.json();
       throw new Error(error.error.message || 'Failed to load recently played');
     }
-    
     return await res.json();
   } catch (error) {
     console.error('Recently played error:', error);
@@ -182,14 +177,8 @@ async function fetchUserTopTracks(limit = 50) {
   return await fetchUserTop('tracks', limit);
 }
 
-
-
-/**
- * Z top tracků sestaví top alba (dle frekvence)
- */
 async function fetchUserTopAlbumsFromTracks(limit = 50) {
   const topTracksData = await fetchUserTopTracks(50);
-
   const albumMap = new Map();
   topTracksData.items.forEach(track => {
     const album = track.album;
@@ -199,36 +188,46 @@ async function fetchUserTopAlbumsFromTracks(limit = 50) {
       albumMap.get(album.id).count++;
     }
   });
-
   const sortedAlbums = [...albumMap.values()]
     .sort((a, b) => b.count - a.count)
     .slice(0, limit)
     .map(item => item.album);
-
   return { items: sortedAlbums };
 }
 
-/**
- * Z umělců vyextrahuje top žánry (10 nejčastějších)
- */
+/*************************************************************************
+ * NORMALIZACE ŽÁNRŮ
+ *************************************************************************/
+function removeDiacritics(str) {
+  return str.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+}
+
+function normalizeGenre(genre) {
+  const lower = removeDiacritics(genre.toLowerCase());
+  const map = {
+    'cesky pop': 'czech pop',
+    'cesky rock': 'czech rock',
+    'slovensky hip hop': 'slovak hip hop'
+  };
+  return map[lower] || lower;
+}
+
 function extractTopGenres(artists) {
   const genreCounts = {};
   artists.forEach(artist => {
     artist.genres.forEach(g => {
-      genreCounts[g] = (genreCounts[g] || 0) + 1;
+      const normalized = normalizeGenre(g);
+      genreCounts[normalized] = (genreCounts[normalized] || 0) + 1;
     });
   });
-
-  const sortedGenres = Object.entries(genreCounts)
+  return Object.entries(genreCounts)
     .sort((a, b) => b[1] - a[1])
     .slice(0, 10)
     .map(g => g[0]);
-
-  return sortedGenres;
 }
 
 /*************************************************************************
- * RENDER FUNKCE (přidán link na Spotify u všech výsledků)
+ * RENDER FUNKCE
  *************************************************************************/
 function renderTopArtists(artists) {
   const box = $('#artists-list');
@@ -241,7 +240,7 @@ function renderTopArtists(artists) {
         <div>
           <h3>${i + 1}. ${a.name}</h3>
           <p class="small">Followers: ${a.followers.total.toLocaleString()}</p>
-          <p class="small">Genres: ${a.genres.join(', ')}</p>
+          <p class="small">Genres: ${a.genres.map(normalizeGenre).join(', ')}</p>
         </div>
       </article>`);
   });
@@ -307,12 +306,11 @@ function renderTopGenres(genres) {
   box.innerHTML = '';
   genres.forEach((g, i) => {
     box.insertAdjacentHTML('beforeend',
-      `<article class="card genre-card" title="Top žánr #${i + 1}">
+      `<article class="card genre-card" title="Top genre #${i + 1}">
         <h3>${i + 1}. ${g}</h3>
       </article>`);
   });
 }
-
 
 /*************************************************************************
  * HELPER: převod milisekund na minuty a sekundy
@@ -324,7 +322,7 @@ function msToMinutesSeconds(ms) {
 }
 
 /*************************************************************************
- * Hlavní načtení uživatelských dat dle timeRange
+ * Hlavní načtení uživatelských dat
  *************************************************************************/
 async function loadUserData() {
   $('#login-prompt').style.display = 'none';
@@ -333,38 +331,19 @@ async function loadUserData() {
   $('#logout-btn').style.display = 'inline-block';
   if (!accessToken) return;
 
-   try {
-    const recentData = await fetchRecentlyPlayed();
-    renderRecentlyPlayed(recentData.items);
-  } catch (error) {
-    $('#recent-list').innerHTML = 
-      `<div style="grid-column:1/-1; text-align:center; color:#ff6b6b;">
-        <p>${error.message}</p>
-        <button onclick="logout()" class="btn" style="margin-top:1rem;">
-          Logout & Refresh Permissions
-        </button>
-      </div>`;
-  }
   try {
     userProfile = await fetchUserProfile();
-
-    // Zobraz uživatele vlevo nahoře
     const userInfo = $('#user-info');
     userInfo.innerHTML = 
       `<img src="${userProfile.images?.[0]?.url || ''}" alt="User avatar" style="width:40px; height:40px; border-radius:50%; margin-right:0.5rem;">
       <span>${userProfile.display_name}</span>`;
     userInfo.style.cursor = 'pointer';
-    userInfo.title = 'Otevřít Spotify profil';
-
+    userInfo.title = 'Open Spotify profile';
     userInfo.onclick = () => {
       const url = userProfile.external_urls?.spotify || `https://open.spotify.com/user/${userProfile.id}`;
       window.open(url, '_blank');
     };
 
-    $('#user-section').hidden = false;
-    $('#login-btn').style.display = 'none';
-
-    // Načti a vykresli top data
     const [artistsData, albumsData, tracksData] = await Promise.all([
       fetchUserTop('artists'),
       fetchUserTopAlbumsFromTracks(),
@@ -374,26 +353,18 @@ async function loadUserData() {
     renderTopArtists(artistsData.items);
     renderTopAlbums(albumsData.items);
     renderTopTracks(tracksData.items);
+    renderTopGenres(extractTopGenres(artistsData.items));
 
-    // Try to load recently played tracks separately
     try {
       const recentData = await fetchRecentlyPlayed();
       renderRecentlyPlayed(recentData.items);
     } catch (recentError) {
-      console.error('Error loading recently played:', recentError);
-      $('#recent-list').innerHTML = `<p style="color: #bbb; text-align: center; grid-column: 1/-1;">Could not load recently played tracks: ${recentError.message}</p>`;
+      $('#recent-list').innerHTML = `<p style="color:#bbb;text-align:center;grid-column:1/-1;">Could not load recently played: ${recentError.message}</p>`;
     }
-
-    // Genres z top artistů
-    const topGenres = extractTopGenres(artistsData.items);
-    renderTopGenres(topGenres);
 
   } catch (e) {
     toast('Chyba při načítání dat: ' + e.message);
-    if (e.message.includes('401')) {
-      // Token expiroval, odhlásit
-      logout();
-    }
+    if (e.message.includes('401')) logout();
   }
 }
 
@@ -402,7 +373,6 @@ async function loadUserData() {
  *************************************************************************/
 function init() {
   const code = handleRedirect();
-
   if (code) {
     getAccessToken(code).then(token => {
       accessToken = token;
@@ -413,12 +383,9 @@ function init() {
     });
   } else {
     accessToken = localStorage.getItem('access_token');
-    if (accessToken) {
-      loadUserData();
-    }
+    if (accessToken) loadUserData();
   }
 
-  // Přepínání panelů
   document.querySelectorAll('.tab').forEach(btn => {
     btn.addEventListener('click', () => {
       switchPanel(btn.dataset.target);
@@ -432,8 +399,6 @@ function init() {
     });
   }
 }
-
-// Po načtení DOM spustíme init
 document.addEventListener('DOMContentLoaded', init);
 
 /*************************************************************************
